@@ -3,163 +3,220 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LaptopCard } from "@/components/LaptopCard";
-import { mockLaptops } from "@/data/laptops";
-import { Check } from "lucide-react";
+import axiosInstance from "@/utils/axiosInstance";
 import { motion } from "framer-motion";
+import { Loader2, CheckCircle, Sparkles } from "lucide-react";
 
-const hobbies = [
-  { id: "art", label: "Art / Illustration", category: "art" },
-  { id: "gaming", label: "Gaming", category: "gaming" },
-  { id: "video-editing", label: "Video Editing / Content Creation", category: "video-editing" },
-  { id: "programming", label: "Programming / Development", category: "programming" },
-  { id: "ml-dl", label: "ML / Data Science", category: "ml-dl" },
-  { id: "3d-modeling", label: "3D Modeling / CAD", category: "3d-modeling" },
-];
+// 💛 Backend Provided Hobby Mapping (Grouped UI)
+const HOBBY_CATEGORY = {
+  coding: ["web development","app development","competitive programming","python automation"],
+  data: ["machine learning","deep learning","ai research","data science","data analysis","big data processing"],
+  creative: ["graphic designing","ui/ux","digital illustration","3d modelling","animation","video editing"],
+  infra: ["cybersecurity","ethical hacking","networking","cloud computing","devops","devops automation"],
+  gaming: ["gaming","game development","streaming"]
+};
 
-const RecommendationHobby = () => {
-  const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
+// 🎨 UI Labels
+const CATEGORY_LABEL: Record<string, string> = {
+  coding: "💻 Coding & Development",
+  data: "📊 Data / AI / ML",
+  creative: "🎨 Creative & Design",
+  infra: "🛠 DevOps / Cybersecurity / Cloud",
+  gaming: "🎮 Gaming / Streaming"
+};
 
-  const toggleHobby = (hobbyId: string) => {
-    if (selectedHobbies.includes(hobbyId)) {
-      setSelectedHobbies(selectedHobbies.filter((h) => h !== hobbyId));
-    } else {
-      setSelectedHobbies([...selectedHobbies, hobbyId]);
-    }
+// Helper to make title from slug / name_url
+const toTitle = (s?: string) =>
+  (s || "")
+    .split("-")
+    .map(w => (w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+
+export default function RecommendationHobby() {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const toggleSelect = (hobby: string) => {
+    setSelected(prev =>
+      prev.includes(hobby) ? prev.filter(h => h !== hobby) : [...prev, hobby]
+    );
   };
 
-  const recommendedLaptops = mockLaptops.filter((laptop) =>
-    selectedHobbies.some((hobby) => laptop.suitableFor.includes(hobby))
-  );
+  // 🚀 SEND TO BACKEND
+  const generateRecommendations = async () => {
+    if (selected.length === 0) return alert("Select at least 1 hobby");
 
-  const getHobbyBadge = (hobbyId: string) => {
-    const hobby = hobbies.find((h) => h.id === hobbyId);
-    return hobby?.label || hobbyId;
+    setLoading(true);
+    setFailed(false);
+
+    // TIMEOUT FAIL
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setFailed(true);
+    }, 20000);
+
+    try {
+      const res = await axiosInstance.post("/hobby/get-laptops-by-hobby", selected);
+      console.log("🤖 Hobby Recommendation Result:", res.data);
+      clearTimeout(timeout);
+
+      setResult(res.data);
+      setLoading(false);
+    } catch (err) {
+      clearTimeout(timeout);
+      setLoading(false);
+      setFailed(true);
+      console.log("❌ Backend Failed:", err);
+    }
   };
 
   return (
     <div className="min-h-screen py-12">
       <div className="container mx-auto px-4 max-w-6xl">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-3">
-            Recommendations Based on Your Hobby
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Select your hobbies and interests to find laptops optimized for what
-            you love to do.
-          </p>
-        </div>
 
-        {/* Hobby Selection */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
+        {/* HEADER */}
+        <motion.h1
+          className="text-4xl font-bold mb-2"
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="p-6 mb-8">
-            <h3 className="text-lg font-bold mb-4">Select Your Hobbies</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {hobbies.map((hobby) => {
-                const isSelected = selectedHobbies.includes(hobby.id);
-                return (
-                  <Button
-                    key={hobby.id}
-                    variant={isSelected ? "default" : "outline"}
-                    className={`justify-start h-auto py-4 px-4 ${
-                      isSelected ? "gradient-primary text-white" : ""
-                    }`}
-                    onClick={() => toggleHobby(hobby.id)}
-                  >
-                    <div className="flex items-center gap-3 w-full">
-                      <div
-                        className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
-                          isSelected
-                            ? "bg-white border-white"
-                            : "border-muted-foreground"
+          AI-Based Hobby Recommendations
+        </motion.h1>
+
+        <p className="text-muted-foreground mb-10 text-lg">
+          Select your interests — AI will calculate hardware requirements & pick best laptops for you.
+        </p>
+
+        {/* ---------------- HOBBY SELECT GRID ---------------- */}
+        <Card className="p-7 mb-8">
+          <h2 className="text-xl font-bold mb-5">Select Your Hobbies</h2>
+
+          <div className="space-y-6">
+            {Object.keys(HOBBY_CATEGORY).map((catKey) => (
+              <div key={catKey}>
+                <h3 className="font-semibold text-lg mb-3">
+                  {CATEGORY_LABEL[catKey] ?? catKey}
+                </h3>
+
+                <div className="flex flex-wrap gap-3">
+                  {HOBBY_CATEGORY[catKey].map((hobby) => {
+                    const active = selected.includes(hobby);
+                    return (
+                      <Button
+                        key={hobby}
+                        variant={active ? "default" : "outline"}
+                        className={`rounded-full px-4 ${
+                          active ? "bg-primary text-white shadow" : ""
                         }`}
+                        onClick={() => toggleSelect(hobby)}
                       >
-                        {isSelected && <Check className="h-3 w-3 text-primary" />}
-                      </div>
-                      <span className="font-medium">{hobby.label}</span>
-                    </div>
-                  </Button>
-                );
-              })}
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Results */}
-        {selectedHobbies.length > 0 ? (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2">
-                Perfect Laptops for Your Interests
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {selectedHobbies.map((hobbyId) => (
-                  <Badge key={hobbyId} variant="secondary" className="px-3 py-1">
-                    Great for {getHobbyBadge(hobbyId)}
-                  </Badge>
-                ))}
+                        {active && <CheckCircle size={14} className="mr-1" />}
+                        {hobby}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-
-            {recommendedLaptops.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {recommendedLaptops.map((laptop, index) => (
-                  <motion.div
-                    key={laptop.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <div className="h-full">
-                      <LaptopCard laptop={laptop} />
-                      {/* Why recommended */}
-                      <Card className="mt-3 p-3 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/10">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          <strong className="text-foreground">Why this?</strong>{" "}
-                          {selectedHobbies.includes("gaming") &&
-                          laptop.suitableFor.includes("gaming")
-                            ? "High refresh rate display and powerful GPU for smooth gaming. "
-                            : ""}
-                          {selectedHobbies.includes("video-editing") &&
-                          laptop.suitableFor.includes("video-editing")
-                            ? "Strong CPU and GPU for fast video rendering. "
-                            : ""}
-                          {selectedHobbies.includes("ml-dl") &&
-                          laptop.suitableFor.includes("ml-dl")
-                            ? "Dedicated GPU with good RAM for ML/DL workloads. "
-                            : ""}
-                          {selectedHobbies.includes("art") &&
-                          laptop.suitableFor.includes("art")
-                            ? "Color-accurate display perfect for creative work. "
-                            : ""}
-                        </p>
-                      </Card>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground">
-                  No laptops match your selected hobbies. Try selecting different
-                  options.
-                </p>
-              </Card>
-            )}
+            ))}
           </div>
-        ) : (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground text-lg">
-              Select at least one hobby to see recommendations
+
+          <div className="mt-8 text-center">
+            <Button
+              size="lg"
+              disabled={loading}
+              className="gradient-primary text-white"
+              onClick={generateRecommendations}
+            >
+              {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : "⚡"}
+              Generate Recommendations
+            </Button>
+          </div>
+        </Card>
+
+        {/* ---------------- LOADING UI ---------------- */}
+        {loading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center pt-10"
+          >
+            <Loader2 className="animate-spin mx-auto mb-3" size={45} />
+            <p className="text-lg font-medium">
+              Analyzing your hobbies... Fetching best laptops 🔍
             </p>
+            <p className="text-muted-foreground">
+              This may take up to <b>20 seconds</b>.
+            </p>
+          </motion.div>
+        )}
+
+        {/* ---------------- TIMEOUT FAIL ---------------- */}
+        {failed && !loading && (
+          <Card className="p-10 text-center text-red-500 text-lg font-semibold">
+            ❌ Failed to fetch response. Try again!
           </Card>
         )}
+
+        {/* ---------------- FINAL RESULT ---------------- */}
+        {result && !loading && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+
+            {/* 🔥 Recommended Specs */}
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2 mb-3">
+                <Sparkles className="text-yellow-500" /> Recommended Specs For You
+              </h2>
+
+              <Card className="p-6 text-base bg-gradient-to-r from-primary/5 to-secondary/10 border-primary/20 space-y-1">
+                {Object.entries(result.recommendations).map(([k, v]) => (
+                  <p key={k}>
+                    <b>{k}:</b> {String(v)}
+                  </p>
+                ))}
+              </Card>
+            </div>
+
+            {/* 💻 Best Matched Laptops */}
+            <div>
+              <h2 className="text-2xl font-bold mb-5">Best Matching Laptops</h2>
+
+              {result.matching_laptops?.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {result.matching_laptops.map((lap: any, i: number) => (
+                    <motion.div
+                      key={lap.slug || i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                    >
+                      <LaptopCard
+                        laptop={{
+                          id: lap.slug,                                      // for compare context
+                          slug: lap.slug,                                   // for /laptop/:slug route
+                          name: toTitle(lap.name_url || lap.slug),         // human readable
+                          image: lap.image,
+                          ram: lap.ram,
+                          internal_storage: lap.internal_storage,
+                          currency: lap.currency || "₹",
+                          price: lap.price,
+                          url: lap.amazon_link,
+                        }}
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <Card className="p-10 text-center">
+                  No matching laptops found.
+                </Card>
+              )}
+            </div>
+          </motion.div>
+        )}
+
       </div>
     </div>
   );
-};
-
-export default RecommendationHobby;
+}

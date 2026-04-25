@@ -3,71 +3,69 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useAuth } from "@/contexts/AuthContext";
-import { branches, mockColleges } from "@/data/colleges";
-import { Laptop2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import axiosInstance from "@/utils/axiosInstance";
+import { Laptop2 } from "lucide-react";
+
+const colleges = ["COEP", "VIT", "PICT", "VIIT", "Cummins", "Bhartiya Vidyapeeth"];
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    userId: "",
-    password: "",
-    name: "",
-    collegeId: "",
-    branch: "",
-    mobileNumber: "",
-    address: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validation
-    if (!formData.userId || !formData.password || !formData.name || 
-        !formData.collegeId || !formData.branch || !formData.mobileNumber) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    setLoading(true);
-    const { password, ...profile } = formData;
-    const success = await register(profile, password);
-    setLoading(false);
-
-    if (success) {
-      toast.success("Registration successful! Welcome aboard!");
-      navigate("/");
-    } else {
-      toast.error("Registration failed. Please try again.");
-    }
-  };
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    collegeName: "",
+    profilePhoto: "",
+  });
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const { name, email, password, collegeName } = formData;
+
+    // Validation
+    if (!name || !email || !password || !collegeName) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const res = await axiosInstance.post("/auth/register", formData);
+
+      if (res.data.success) {
+        toast.success("Registration successful!");
+        navigate("/login");
+      } else {
+        toast.error(res.data.message || "Registration failed");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 py-12 relative overflow-hidden">
       <div className="absolute inset-0 gradient-hero opacity-5" />
-      
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-2xl relative z-10"
       >
         <div className="bg-card rounded-2xl shadow-card-hover p-8 border">
+          
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <div className="gradient-primary rounded-xl p-3">
@@ -83,131 +81,77 @@ const Register = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label htmlFor="userId">User ID *</Label>
-                <Input
-                  id="userId"
-                  type="text"
-                  placeholder="Choose a unique ID"
-                  value={formData.userId}
-                  onChange={(e) => updateField("userId", e.target.value)}
-                  required
-                  className="bg-background"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Create a strong password"
-                  value={formData.password}
-                  onChange={(e) => updateField("password", e.target.value)}
-                  required
-                  className="bg-background"
-                />
-              </div>
-            </div>
-
+            
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
+              <Label>Name *</Label>
               <Input
-                id="name"
-                type="text"
-                placeholder="Enter your full name"
                 value={formData.name}
                 onChange={(e) => updateField("name", e.target.value)}
-                required
+                placeholder="Enter your full name"
                 className="bg-background"
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label htmlFor="college">College *</Label>
-                <Select
-                  value={formData.collegeId}
-                  onValueChange={(value) => updateField("collegeId", value)}
-                  required
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select your college" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card">
-                    {mockColleges.map((college) => (
-                      <SelectItem key={college.id} value={college.id}>
-                        {college.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="branch">Branch *</Label>
-                <Select
-                  value={formData.branch}
-                  onValueChange={(value) => updateField("branch", value)}
-                  required
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select your branch" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card">
-                    {branches.map((branch) => (
-                      <SelectItem key={branch} value={branch}>
-                        {branch}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number *</Label>
+              <Label>Email *</Label>
               <Input
-                id="mobile"
-                type="tel"
-                placeholder="10-digit mobile number"
-                value={formData.mobileNumber}
-                onChange={(e) => updateField("mobileNumber", e.target.value)}
-                required
+                type="email"
+                value={formData.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                placeholder="Enter your email"
                 className="bg-background"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                placeholder="Enter your address (optional)"
-                value={formData.address}
-                onChange={(e) => updateField("address", e.target.value)}
-                rows={3}
-                className="bg-background resize-none"
+              <Label>Password *</Label>
+              <Input
+                type="password"
+                value={formData.password}
+                onChange={(e) => updateField("password", e.target.value)}
+                placeholder="Create a password"
+                className="bg-background"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>College *</Label>
+              <select
+                className="bg-background border rounded-md px-3 py-2"
+                value={formData.collegeName}
+                onChange={(e) => updateField("collegeName", e.target.value)}
+              >
+                <option value="">Select your college</option>
+                {colleges.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Profile Photo (optional)</Label>
+              <Input
+                value={formData.profilePhoto}
+                onChange={(e) => updateField("profilePhoto", e.target.value)}
+                placeholder="Paste image URL"
+                className="bg-background"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full gradient-primary text-white shadow-button"
               disabled={loading}
+              className="w-full gradient-primary text-white shadow-button"
             >
-              {loading ? "Creating account..." : "Create Account"}
+              {loading ? "Registering..." : "Create Account"}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">
-              Already have an account?{" "}
-            </span>
-            <Link
-              to="/login"
-              className="text-primary font-medium hover:underline"
-            >
+            <span className="text-muted-foreground">Already have an account? </span>
+            <Link to="/login" className="text-primary font-medium hover:underline">
               Login here
             </Link>
           </div>
